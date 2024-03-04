@@ -35,7 +35,9 @@ MAX_CURRENTS = []
 
 SELECT_TYPES = []
 
-SENSOR_TYPES = [SolintegModbusSensorEntityDescription] = [
+NUMBER_TYPES = []
+
+SENSOR_TYPES: list[SolintegModbusSensorEntityDescription] = [
     SolintegModbusSensorEntityDescription(
         name="Serial Number",
         key="serial_number",
@@ -122,11 +124,9 @@ SENSOR_TYPES = [SolintegModbusSensorEntityDescription] = [
         key="pv1_voltage",
         native_unit_of_measurement = UnitOfElectricPotential.VOLT,
         device_class = SensorDeviceClass.VOLTAGE,
-        state_class = SensorStateClass.MEASUREMENT,
         register=11038,
-        register_type = REG_INPUT,
+        unit = REGISTER_U16,
         scale = 0.1,
-        rounding = 1,
     ),
     # PV1 current (11039)
     SolintegModbusNumberEntityDescription(
@@ -134,11 +134,9 @@ SENSOR_TYPES = [SolintegModbusSensorEntityDescription] = [
         key="pv1_current",
         native_unit_of_measurement = UnitOfElectricCurrent.AMPERE,
         device_class = SensorDeviceClass.CURRENT,
-        state_class = SensorStateClass.MEASUREMENT,
         register=11039,
-        register_type = REG_INPUT,
+        unit = REGISTER_U16,
         scale = 0.1,
-        rounding = 1,
         icon = "mdi:current-dc",
     ),
     # PV2 voltage (11040)
@@ -147,11 +145,9 @@ SENSOR_TYPES = [SolintegModbusSensorEntityDescription] = [
         key="pv2_voltage",
         native_unit_of_measurement = UnitOfElectricPotential.VOLT,
         device_class = SensorDeviceClass.VOLTAGE,
-        state_class = SensorStateClass.MEASUREMENT,
         register=11040,
-        register_type = REG_INPUT,
+        unit = REGISTER_U16,
         scale = 0.1,
-        rounding = 1,
     ),
     # PV2 current (11041)
     SolintegModbusNumberEntityDescription(
@@ -159,11 +155,9 @@ SENSOR_TYPES = [SolintegModbusSensorEntityDescription] = [
         key="pv2_current",
         native_unit_of_measurement = UnitOfElectricCurrent.AMPERE,
         device_class = SensorDeviceClass.CURRENT,
-        state_class = SensorStateClass.MEASUREMENT,
         register=11041,
-        register_type = REG_INPUT,
+        unit = REGISTER_U16,
         scale = 0.1,
-        rounding = 1,
         icon = "mdi:current-dc",
     ),
 ]
@@ -178,6 +172,9 @@ plugin_instance = solinteg_plugin(
     plugin_name = 'Solinteg',
     plugin_manufacturer = 'Solinteg',
     SENSOR_TYPES = SENSOR_TYPES,
+    NUMBER_TYPES = NUMBER_TYPES,
+    BUTTON_TYPES = BUTTON_TYPES,
+    SELECT_TYPES = SELECT_TYPES,
     block_size = 100,
     order16 = Endian.BIG,
     order32 = Endian.LITTLE,
