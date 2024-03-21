@@ -35,7 +35,32 @@ MAX_CURRENTS = []
 
 SELECT_TYPES = []
 
-NUMBER_TYPES = []
+NUMBER_TYPES = [
+    SolintegModbusNumberEntityDescription(
+        name="Battery On Grid SOC",
+        key="battery_on_grid_soc",
+        register = 52503,
+        native_min_value = 0,
+        native_max_value = 9900,
+        native_step = 100,
+        scale = 100,
+        native_unit_of_measurement = PERCENTAGE,
+        allowedtypes = ALLDEFAULT,
+        icon = "mdi:battery-sync",
+    ),
+    SolintegModbusNumberEntityDescription(
+        name="Battery Off Grid SOC",
+        key="battery_off_grid_soc",
+        register = 52505,
+        native_min_value = 0,
+        native_max_value = 9900,
+        native_step = 100,
+        scale = 100,
+        native_unit_of_measurement = PERCENTAGE,
+        allowedtypes = ALLDEFAULT,
+        icon = "mdi:battery-sync",
+    ),
+]
 
 SENSOR_TYPES: list[SolintegModbusSensorEntityDescription] = [
     SolintegModbusSensorEntityDescription(
