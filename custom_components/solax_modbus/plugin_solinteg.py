@@ -1,11 +1,24 @@
 import logging
 from dataclasses import dataclass
+from homeassistant.components.number import NumberEntityDescription
+from homeassistant.components.select import SelectEntityDescription
+from homeassistant.components.button import ButtonEntityDescription
 from pymodbus.payload import BinaryPayloadBuilder, BinaryPayloadDecoder, Endian
 from custom_components.solax_modbus.const import *
 
 _LOGGER = logging.getLogger(__name__)
 
 ALLDEFAULT = 0
+
+# Inverter type
+HYBRID  = 0x1000
+
+# Constants - number of phases
+X1      = 0x0100
+X3      = 0x0200
+
+# Constant for model type parsing
+HYBRID_3F_DUAL_MPPT = 0x3000
 
 @dataclass
 class SolintegModbusButtonEntityDescription(BaseModbusButtonEntityDescription):
@@ -33,118 +46,248 @@ BUTTON_TYPES = []
 
 MAX_CURRENTS = []
 
-SELECT_TYPES = []
+SELECT_TYPES = [
+    # Enable grid injenction
+    SolintegModbusSelectEntityDescription(
+        name = "Grid Injenction Power Limit Switch",
+        key = "grid_injenction_power_limit_switch",
+        register = 25100,
+        unit = REGISTER_U16,
+        option_dict =  {
+                0: "Disabled",
+                1: "Enabled",
+            },
+        allowedtypes = HYBRID,
+        entity_category = EntityCategory.CONFIG,
+        icon = "mdi:transmission-tower-off",
+    ),
+    # Battery on-grid SOC battery protection
+    SolintegModbusSelectEntityDescription(
+        name = "Battery SOC on-grid protection",
+        key = "battery_soc_on_grid_protection",
+        register = 52502,
+        option_dict = {
+            0: "Off",
+            1: "On",
+            },
+        unit = REGISTER_U16,
+        allowedtypes = HYBRID,
+        icon = "mdi:battery-plus-variant",
+    ),
+    # Battery off-grid SOC battery protection
+    SolintegModbusSelectEntityDescription(
+        name = "Battery SOC off-grid protection",
+        key = "battery_soc_off_grid_protection",
+        register = 52504,
+        option_dict = {
+            0: "Off",
+            1: "On",
+            },
+        unit = REGISTER_U16,
+        allowedtypes = HYBRID,
+        icon = "mdi:battery-plus-variant",
+    ),
+]
 
 NUMBER_TYPES = [
+    # Set grid injection percentage
     SolintegModbusNumberEntityDescription(
-        name="Battery On Grid SOC",
-        key="battery_on_grid_soc",
-        register = 52503,
+        name = "Grid Injection Power Limit Settings",
+        key = "grid_injenction_power_limit_settings",
+        register = 25101,
+        unit = REGISTER_U32,
+        fmt = "i",
         native_min_value = 0,
-        native_max_value = 9900,
-        native_step = 100,
-        scale = 100,
-        native_unit_of_measurement = PERCENTAGE,
-        allowedtypes = ALLDEFAULT,
-        icon = "mdi:battery-sync",
+        native_max_value = 100000,
+        native_step = 1,
+        native_unit_of_measurement = UnitOfPower.WATT,
+        allowedtypes = HYBRID,
+        icon = "mdi:transmission-tower-export",
     ),
+    # Set on-grid SOC battery end
     SolintegModbusNumberEntityDescription(
-        name="Battery Off Grid SOC",
-        key="battery_off_grid_soc",
+        name = "Battery SOC on-grid end",
+        key = "battery_soc_on_grid_end",
+        register = 52503,
+        unit = REGISTER_U16,
+        fmt = "i",
+        native_min_value = 10,
+        native_max_value = 10000,
+        native_step = 1,
+        #native_unit_of_measurement = PERCENTAGE,
+        #scale = 0.001,
+        allowedtypes = HYBRID,
+        icon = "mdi:battery-30",
+    ),
+    # Set off-grid SOC battery end
+    SolintegModbusNumberEntityDescription(
+        name = "Battery SOC off-grid end",
+        key = "battery_soc_off_grid_end",
         register = 52505,
-        native_min_value = 0,
-        native_max_value = 9900,
-        native_step = 100,
-        scale = 100,
+        unit = REGISTER_U16,
+        fmt = "i",
+        native_min_value = 10,
+        native_max_value = 100,
+        native_step = 1,
         native_unit_of_measurement = PERCENTAGE,
-        allowedtypes = ALLDEFAULT,
-        icon = "mdi:battery-sync",
+        scale = 0.001,
+        allowedtypes = HYBRID,
+        icon = "mdi:battery-10",
     ),
 ]
 
 SENSOR_TYPES: list[SolintegModbusSensorEntityDescription] = [
+#    # Serial number
+#    SolintegModbusSensorEntityDescription(
+#        name = "Serial Number",
+#        key = "serial_number",
+#        register = 10000,
+#        unit = REGISTER_STR,
+#        wordcount=8,
+#        #entity_registry_enabled_default = False,
+#        allowedtypes = HYBRID,
+#        entity_category = EntityCategory.DIAGNOSTIC,
+#        icon = "mdi:information",
+#    ),
+
+    # Inverter model
     SolintegModbusSensorEntityDescription(
-        name="Serial Number",
-        key="serial_number",
-        ignore_readerror = True,
-        register_type=REG_INPUT,
-        register=10000,
-        unit=REGISTER_STR,
-        wordcount = 8,
+        name="Inverter model",
+        key="inverter_model",
         entity_category = EntityCategory.DIAGNOSTIC,
+        register=10008,
+        unit = REGISTER_U16,
+        allowedtypes=HYBRID,
         icon = "mdi:information",
     ),
-    # Firmware version master (10011)
+    # Inverter working status
     SolintegModbusSensorEntityDescription(
-        name="Firmware Version (master)",
-        key="firmware_version_master",
-        ignore_readerror = True,
-        register_type=REG_INPUT,
-        register=10011,
-        unit=REGISTER_U32,
+        name = "Inverter working status",
+        key = "inverter_working_status",
         entity_category = EntityCategory.DIAGNOSTIC,
-        icon = "mdi:information",
-    ),
-    # Firmware version slave (10013)
-    SolintegModbusSensorEntityDescription(
-        name="Firmware Version (slave)",
-        key="firmware_version_slave",
-        ignore_readerror = True,
-        register_type=REG_INPUT,
-        register=10013,
-        unit=REGISTER_U32,
-        entity_category = EntityCategory.DIAGNOSTIC,
-        icon = "mdi:information",
-    ),
-    # Skip RTC for now
-    # Skip safety code for now
-    # Inverter working status (10105)
-    SolintegModbusSelectEntityDescription(
-        name="Inverter Status",
-        key="inverter_status",
-        register=10105,        
-        option_dict = {
-            0: "Wait For Grid Connection",
+        register = 10105,
+        scale = {
+            0: "Waiting for grid connection",
             1: "Self-checking",
-            2: "On-grid Generating",
+            2: "On-grid generating",
             3: "Device fault",
-            4: "Firmware Upgrade",
-            5: "Off-grid Generating",
-        },
+            4: "Firmware upgrade",
+            5: "Off-grid generating",
+            },
+        allowedtypes = HYBRID,
         icon = "mdi:dip-switch",
     ),
-    # Fault flag1 (10112) U32
-    # TODO parse bits of error flags
+    # Power consumption on phase 1
     SolintegModbusSensorEntityDescription(
-        name="Fault Flag 1",
-        key="fault_flag1",
-        register=10112,
-        unit=REGISTER_U32,
-        entity_category = EntityCategory.DIAGNOSTIC,
-        icon = "mdi:alert",
+        name="Grid phase 1 power",
+        key="grid_phase_1_power",
+        native_unit_of_measurement = UnitOfPower.WATT,
+        device_class = SensorDeviceClass.POWER,
+        state_class = SensorStateClass.MEASUREMENT,
+        register=10994,
+        #scale = 0.001,
+        unit = REGISTER_S32,
+        allowedtypes=HYBRID,
     ),
-    # Fault flag2 (10114) U32
-    # TODO parse bits of error flags
+    # Power consumption on phase 2
     SolintegModbusSensorEntityDescription(
-        name="Fault Flag 2",
-        key="fault_flag2",
-        register=10114,
-        unit=REGISTER_U32,
-        entity_category = EntityCategory.DIAGNOSTIC,
-        icon = "mdi:alert",
+        name="Grid phase 2 power",
+        key="grid_phase_2_power",
+        native_unit_of_measurement = UnitOfPower.WATT,
+        device_class = SensorDeviceClass.POWER,
+        state_class = SensorStateClass.MEASUREMENT,
+        register=10996,
+        #scale = 0.001,
+        unit = REGISTER_S32,
+        allowedtypes=HYBRID,
     ),
-    # Fault flag3 (10116) U32
-    # TODO parse bits of error flags
+    # Power consumption on phase 3
     SolintegModbusSensorEntityDescription(
-        name="Fault Flag 3",
-        key="fault_flag3",
-        register=10116,
-        unit=REGISTER_U32,
-        entity_category = EntityCategory.DIAGNOSTIC,
-        icon = "mdi:alert",
+        name="Grid phase 3 power",
+        key="grid_phase_3_power",
+        native_unit_of_measurement = UnitOfPower.WATT,
+        device_class = SensorDeviceClass.POWER,
+        state_class = SensorStateClass.MEASUREMENT,
+        register=10998,
+        #scale = 0.001,
+        unit = REGISTER_S32,
+        allowedtypes=HYBRID,
+    ),
+    # Total power consumption
+    SolintegModbusSensorEntityDescription(
+        name="Total grid power",
+        key="total_grid_power",
+        native_unit_of_measurement = UnitOfPower.WATT,
+        device_class = SensorDeviceClass.POWER,
+        state_class = SensorStateClass.MEASUREMENT,
+        register=11000,
+        #scale = 0.001,
+        unit = REGISTER_S32,
+        allowedtypes=HYBRID,
+    ),
+    # Total grid injenction
+    SolintegModbusSensorEntityDescription(
+        name="Total grid injenction",
+        key="total_grid_injenction",
+        native_unit_of_measurement = UnitOfPower.WATT,
+        device_class = SensorDeviceClass.POWER,
+        state_class = SensorStateClass.MEASUREMENT,
+        register=11002,
+        #scale = 0.001,
+        unit = REGISTER_U32,
+        allowedtypes=HYBRID,
+    ),
+    # Total purchasing energy
+    SolintegModbusSensorEntityDescription(
+        name="Total purchasing energy",
+        key="total_purchasing_energy",
+        native_unit_of_measurement = UnitOfPower.WATT,
+        device_class = SensorDeviceClass.POWER,
+        state_class = SensorStateClass.MEASUREMENT,
+        register=11004,
+        #scale = 0.001,
+        unit = REGISTER_U32,
+        allowedtypes=HYBRID,
+    ),
+    # Energy today
+    SolintegModbusSensorEntityDescription(
+        name="Energy today",
+        key="energy_today",
+        native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR,
+        device_class = SensorDeviceClass.ENERGY,
+        register=11018,
+        unit = REGISTER_U32,
+        scale = 0.1,
+        rounding = 1,
+        allowedtypes=HYBRID,
+    ),
+    # Energy total
+    SolintegModbusSensorEntityDescription(
+        name="Energy total",
+        key="energy_total",
+        native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR,
+        device_class = SensorDeviceClass.ENERGY,
+        register=11020,
+        unit = REGISTER_U32,
+        scale = 0.1,
+        rounding = 1,
+        allowedtypes=HYBRID,
+    ),
+    # Total PV Input power
+    SolintegModbusSensorEntityDescription(
+        name="PV total",
+        key="pv_total",
+        native_unit_of_measurement = UnitOfPower.WATT,
+        device_class = SensorDeviceClass.POWER,
+        state_class = SensorStateClass.MEASUREMENT,
+        register=11028,
+        unit = REGISTER_U32,
+        #scale = 0.001,
+        rounding = 0,
+        allowedtypes=HYBRID,
     ),
     # PV1 voltage (11038)
-    SolintegModbusNumberEntityDescription(
+    SolintegModbusSensorEntityDescription(
         name="PV1 Voltage",
         key="pv1_voltage",
         native_unit_of_measurement = UnitOfElectricPotential.VOLT,
@@ -152,9 +295,10 @@ SENSOR_TYPES: list[SolintegModbusSensorEntityDescription] = [
         register=11038,
         unit = REGISTER_U16,
         scale = 0.1,
+        allowedtypes=HYBRID,
     ),
     # PV1 current (11039)
-    SolintegModbusNumberEntityDescription(
+    SolintegModbusSensorEntityDescription(
         name="PV1 Current",
         key="pv1_current",
         native_unit_of_measurement = UnitOfElectricCurrent.AMPERE,
@@ -163,35 +307,638 @@ SENSOR_TYPES: list[SolintegModbusSensorEntityDescription] = [
         unit = REGISTER_U16,
         scale = 0.1,
         icon = "mdi:current-dc",
+        allowedtypes=HYBRID,
     ),
     # PV2 voltage (11040)
-    SolintegModbusNumberEntityDescription(
+    SolintegModbusSensorEntityDescription(
         name="PV2 Voltage",
         key="pv2_voltage",
         native_unit_of_measurement = UnitOfElectricPotential.VOLT,
         device_class = SensorDeviceClass.VOLTAGE,
+        register_type=REG_HOLDING,
         register=11040,
         unit = REGISTER_U16,
         scale = 0.1,
+        allowedtypes=HYBRID,
     ),
     # PV2 current (11041)
-    SolintegModbusNumberEntityDescription(
+    SolintegModbusSensorEntityDescription(
         name="PV2 Current",
         key="pv2_current",
         native_unit_of_measurement = UnitOfElectricCurrent.AMPERE,
         device_class = SensorDeviceClass.CURRENT,
+        register_type=REG_HOLDING,
         register=11041,
         unit = REGISTER_U16,
         scale = 0.1,
+        allowedtypes=HYBRID,
         icon = "mdi:current-dc",
     ),
+    # PV1 Input power
+    SolintegModbusSensorEntityDescription(
+        name="PV1 power",
+        key="pv1_input_power",
+        native_unit_of_measurement = UnitOfPower.WATT,
+        device_class = SensorDeviceClass.POWER,
+        state_class = SensorStateClass.MEASUREMENT,
+        register=11062,
+        unit = REGISTER_U32,
+        #scale = 0.001,
+        allowedtypes=HYBRID,
+    ),
+    # PV2 Input power
+    SolintegModbusSensorEntityDescription(
+        name="PV2 power",
+        key="pv2_input_power",
+        native_unit_of_measurement = UnitOfPower.WATT,
+        device_class = SensorDeviceClass.POWER,
+        state_class = SensorStateClass.MEASUREMENT,
+        register=11064,
+        unit = REGISTER_U32,
+        #scale = 0.001,
+        allowedtypes=HYBRID,
+    ),
+    # Settings of grid injenction power
+    SolintegModbusSensorEntityDescription(
+        name = "Grid Injection Power Limit Settings",
+        key = "grid_injenction_power_limit_settings",
+        register = 25101,
+        unit = REGISTER_U32,
+        native_unit_of_measurement = UnitOfPower.WATT,
+        device_class = SensorDeviceClass.POWER,
+        state_class = SensorStateClass.MEASUREMENT,
+        allowedtypes = HYBRID,
+        icon = "mdi:transmission-tower-export",
+    ),
+    # Backup phase 1 voltage
+    SolintegModbusSensorEntityDescription(
+        name="Backup phase 1 Voltage",
+        key="bck_phase_1_voltage",
+        native_unit_of_measurement = UnitOfElectricPotential.VOLT,
+        device_class = SensorDeviceClass.VOLTAGE,
+        register_type=REG_HOLDING,
+        register=30200,
+        unit = REGISTER_U16,
+        scale = 0.1,
+        allowedtypes=HYBRID,
+    ),
+    # Backup phase 1 current
+    SolintegModbusSensorEntityDescription(
+        name="Backup phase 1 Current",
+        key="bck_phase_1_current",
+        native_unit_of_measurement = UnitOfElectricCurrent.AMPERE,
+        device_class = SensorDeviceClass.CURRENT,
+        register_type=REG_HOLDING,
+        register=30201,
+        unit = REGISTER_U16,
+        scale = 0.1,
+        allowedtypes=HYBRID,
+        icon = "mdi:current-dc",
+    ),
+    # Backup phase 1 frequency
+    SolintegModbusSensorEntityDescription(
+        name="Backup phase 1 Frequency",
+        key="bck_phase_1_frequency",
+        native_unit_of_measurement = UnitOfFrequency.HERTZ,
+        state_class = SensorStateClass.MEASUREMENT,
+        register_type=REG_HOLDING,
+        register=30202,
+        unit = REGISTER_U16,
+        scale = 0.01,
+        rounding = 1,
+        allowedtypes=HYBRID,
+    ),
+    # Backup phase 1 power
+    SolintegModbusSensorEntityDescription(
+        name="Backup phase 1 Power",
+        key="bck_phase_1_power",
+        native_unit_of_measurement = UnitOfPower.WATT,
+        device_class = SensorDeviceClass.POWER,
+        state_class = SensorStateClass.MEASUREMENT,
+        register_type=REG_HOLDING,
+        register=30204,
+        unit = REGISTER_S32,
+        #scale = 0.001,
+        allowedtypes=HYBRID,
+    ),
+    # Backup phase 2 voltage
+    SolintegModbusSensorEntityDescription(
+        name="Backup phase 2 Voltage",
+        key="bck_phase_2_voltage",
+        native_unit_of_measurement = UnitOfElectricPotential.VOLT,
+        device_class = SensorDeviceClass.VOLTAGE,
+        register_type=REG_HOLDING,
+        register=30210,
+        unit = REGISTER_U16,
+        scale = 0.1,
+        allowedtypes=HYBRID,
+    ),
+    # Backup phase 2 current
+    SolintegModbusSensorEntityDescription(
+        name="Backup phase 2 Current",
+        key="bck_phase_2_current",
+        native_unit_of_measurement = UnitOfElectricCurrent.AMPERE,
+        device_class = SensorDeviceClass.CURRENT,
+        register_type=REG_HOLDING,
+        register=30211,
+        unit = REGISTER_U16,
+        scale = 0.1,
+        allowedtypes=HYBRID,
+        icon = "mdi:current-dc",
+    ),
+    # Backup phase 2 frequency
+    SolintegModbusSensorEntityDescription(
+        name="Backup phase 2 Frequency",
+        key="bck_phase_2_frequency",
+        native_unit_of_measurement = UnitOfFrequency.HERTZ,
+        state_class = SensorStateClass.MEASUREMENT,
+        register_type=REG_HOLDING,
+        register=30212,
+        unit = REGISTER_U16,
+        scale = 0.01,
+        rounding = 1,
+        allowedtypes=HYBRID,
+    ),
+    # Backup phase 2 power
+    SolintegModbusSensorEntityDescription(
+        name="Backup phase 2 Power",
+        key="bck_phase_2_power",
+        native_unit_of_measurement = UnitOfPower.WATT,
+        device_class = SensorDeviceClass.POWER,
+        state_class = SensorStateClass.MEASUREMENT,
+        register_type=REG_HOLDING,
+        register=30214,
+        unit = REGISTER_S32,
+        #scale = 0.001,
+        allowedtypes=HYBRID,
+    ),
+    # Backup phase 3 voltage
+    SolintegModbusSensorEntityDescription(
+        name="Backup phase 3 Voltage",
+        key="bck_phase_3_voltage",
+        native_unit_of_measurement = UnitOfElectricPotential.VOLT,
+        device_class = SensorDeviceClass.VOLTAGE,
+        register_type=REG_HOLDING,
+        register=30220,
+        unit = REGISTER_U16,
+        scale = 0.1,
+        allowedtypes=HYBRID,
+    ),
+    # Backup phase 3 current
+    SolintegModbusSensorEntityDescription(
+        name="Backup phase 3 Current",
+        key="bck_phase_3_current",
+        native_unit_of_measurement = UnitOfElectricCurrent.AMPERE,
+        device_class = SensorDeviceClass.CURRENT,
+        register_type=REG_HOLDING,
+        register=30221,
+        unit = REGISTER_U16,
+        scale = 0.1,
+        allowedtypes=HYBRID,
+        icon = "mdi:current-dc",
+    ),
+    # Backup phase 3 frequency
+    SolintegModbusSensorEntityDescription(
+        name="Backup phase 3 Frequency",
+        key="bck_phase_3_frequency",
+        native_unit_of_measurement = UnitOfFrequency.HERTZ,
+        state_class = SensorStateClass.MEASUREMENT,
+        register_type=REG_HOLDING,
+        register=30222,
+        unit = REGISTER_U16,
+        scale = 0.01,
+        rounding = 1,
+        allowedtypes=HYBRID,
+    ),
+    # Backup phase 3 power
+    SolintegModbusSensorEntityDescription(
+        name="Backup phase 3 Power",
+        key="bck_phase_3_power",
+        native_unit_of_measurement = UnitOfPower.WATT,
+        device_class = SensorDeviceClass.POWER,
+        state_class = SensorStateClass.MEASUREMENT,
+        register_type=REG_HOLDING,
+        register=30224,
+        unit = REGISTER_S32,
+        #scale = 0.001,
+        allowedtypes=HYBRID,
+    ),
+    # Total Backup power
+    SolintegModbusSensorEntityDescription(
+        name="Total Backup Power",
+        key="total_backup_power",
+        native_unit_of_measurement = UnitOfPower.WATT,
+        device_class = SensorDeviceClass.POWER,
+        state_class = SensorStateClass.MEASUREMENT,
+        register_type=REG_HOLDING,
+        register=30230,
+        unit = REGISTER_S32,
+        #scale = 0.001,
+        allowedtypes=HYBRID,
+    ),
+    # Battery voltage
+    SolintegModbusSensorEntityDescription(
+        name="Battery voltage",
+        key="battery_voltage",
+        native_unit_of_measurement = UnitOfElectricPotential.VOLT,
+        device_class = SensorDeviceClass.VOLTAGE,
+        register_type=REG_HOLDING,
+        register=30254,
+        unit = REGISTER_U16,
+        scale = 0.1,
+        allowedtypes=HYBRID,
+    ),
+    # Battery current
+    SolintegModbusSensorEntityDescription(
+        name="Battery current",
+        key="battery_current",
+        native_unit_of_measurement = UnitOfElectricCurrent.AMPERE,
+        device_class = SensorDeviceClass.CURRENT,
+        register_type=REG_HOLDING,
+        register=30255,
+        unit = REGISTER_U16,
+        scale = 0.1,
+        allowedtypes=HYBRID,
+        icon = "mdi:current-dc",
+    ),
+    # Battery mode
+    SolintegModbusSensorEntityDescription(
+        name="Battery mode",
+        key="battery_mode",
+        entity_category = EntityCategory.DIAGNOSTIC,
+        register = 30256,
+        scale = {
+            0: "Discharge",
+            1: "Charge",
+            },
+        allowedtypes = HYBRID,
+        icon = "mdi:dip-switch",
+    ),
+    # Battery power
+    SolintegModbusSensorEntityDescription(
+        name="Battery power",
+        key="battery_power",
+        native_unit_of_measurement = UnitOfPower.WATT,
+        device_class = SensorDeviceClass.POWER,
+        state_class = SensorStateClass.MEASUREMENT,
+        register_type=REG_HOLDING,
+        register=30258,
+        unit = REGISTER_S32,
+        #scale = 0.001,
+        allowedtypes=HYBRID,
+    ),
+    # Daily Energy Injected to Grid
+    SolintegModbusSensorEntityDescription(
+        name="Daily Energy Injected to Grid",
+        key="daily_energy_injected_to_grid",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        register_type=REG_HOLDING,
+        register=31000,
+        unit=REGISTER_U16,
+        scale=0.1,
+        rounding = 1,
+        allowedtypes=HYBRID,
+    ),
+    # Daily Purchased Energy
+    SolintegModbusSensorEntityDescription(
+        name="Daily Purchased Energy",
+        key="daily_purchased_energy",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        register_type=REG_HOLDING,
+        register=31001,
+        unit=REGISTER_U16,
+        scale=0.1,
+        rounding = 1,
+        allowedtypes=HYBRID,
+    ),
+    # Daily Energy Output on Backup Port
+    SolintegModbusSensorEntityDescription(
+        name="Daily Energy Output on Backup Port",
+        key="daily_energy_output_on_backup_port",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        register_type=REG_HOLDING,
+        register=31002,
+        unit=REGISTER_U16,
+        scale=0.1,
+        rounding = 1,
+        allowedtypes=HYBRID,
+    ),
+    # Daily Battery Charging Energy
+    SolintegModbusSensorEntityDescription(
+        name="Daily Battery Charging Energy",
+        key="daily_battery_charging_energy",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        register_type=REG_HOLDING,
+        register=31003,
+        unit=REGISTER_U16,
+        scale=0.1,
+        rounding = 1,
+        allowedtypes=HYBRID,
+    ),
+    # Daily Battery Discharging Energy
+    SolintegModbusSensorEntityDescription(
+        name="Daily Battery Discharging Energy",
+        key="daily_battery_discharging_energy",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        register_type=REG_HOLDING,
+        register=31004,
+        unit=REGISTER_U16,
+        scale=0.1,
+        rounding = 1,
+        allowedtypes=HYBRID,
+    ),
+    # Daily PV Generation
+    SolintegModbusSensorEntityDescription(
+        name="Daily PV Generation",
+        key="daily_pv_generation",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        register_type=REG_HOLDING,
+        register=31005,
+        unit=REGISTER_U16,
+        scale=0.1,
+        rounding = 1,
+        allowedtypes=HYBRID,
+    ),
+    # Daily Load Consumption
+    SolintegModbusSensorEntityDescription(
+        name="Daily Load Consumption",
+        key="daily_load_consumption",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        register_type=REG_HOLDING,
+        register=31006,
+        unit=REGISTER_U16,
+        scale=0.1,
+        rounding = 1,
+        allowedtypes=HYBRID,
+    ),
+    # Daily Energy Purchased from Grid at Inverter Side
+    SolintegModbusSensorEntityDescription(
+        name="Daily Energy Purchased from Grid at Inverter Side",
+        key="daily_energy_purchased_from_grid_at_inverter_side",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        register_type=REG_HOLDING,
+        register=31008,
+        unit=REGISTER_U16,
+        scale=0.1,
+        rounding = 1,
+        allowedtypes=HYBRID,
+    ),
+    # Total energy injected to grid
+    SolintegModbusSensorEntityDescription(
+        name="Total energy injected to grid",
+        key="total_energy_injected_to_grid",
+        native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR,
+        device_class = SensorDeviceClass.ENERGY,
+        state_class = SensorStateClass.TOTAL_INCREASING,
+        register_type=REG_HOLDING,
+        register=31102,
+        unit = REGISTER_U32,
+        scale = 0.1,
+        rounding = 1,
+        allowedtypes=HYBRID,
+    ),
+    # Total purchased energy from grid
+    SolintegModbusSensorEntityDescription(
+        name="Total purchased energy from grid",
+        key="total_purchased_energy_from_grid",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class = SensorStateClass.TOTAL_INCREASING,
+        register_type=REG_HOLDING,
+        register=31104,
+        unit=REGISTER_U32,
+        scale=0.1,
+        rounding = 1,
+        allowedtypes=HYBRID,
+    ),
+    # Total output energy on backup port
+    SolintegModbusSensorEntityDescription(
+        name="Total output energy on backup port",
+        key="total_output_energy_on_backup_port",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class = SensorStateClass.TOTAL_INCREASING,
+        register_type=REG_HOLDING,
+        register=31106,
+        unit=REGISTER_U32,
+        scale=0.1,
+        rounding = 1,
+        allowedtypes=HYBRID,
+    ),
+    # Total battery charging energy
+    SolintegModbusSensorEntityDescription(
+        name="Total battery charging energy",
+        key="total_battery_charging_energy",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class = SensorStateClass.TOTAL_INCREASING,
+        register_type=REG_HOLDING,
+        register=31108,
+        unit=REGISTER_U32,
+        scale=0.001,
+        rounding = 1,
+        allowedtypes=HYBRID,
+    ),
+    # Total battery discharging energy
+    SolintegModbusSensorEntityDescription(
+        name="Total battery discharging energy",
+        key="total_battery_discharging_energy",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class = SensorStateClass.TOTAL_INCREASING,
+        register_type=REG_HOLDING,
+        register=31110,
+        unit=REGISTER_U32,
+        scale=0.001,
+        rounding = 1,
+        allowedtypes=HYBRID,
+    ),
+    # Total PV generation
+    SolintegModbusSensorEntityDescription(
+        name="Total PV generation",
+        key="total_pv_generation",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class = SensorStateClass.TOTAL_INCREASING,
+        register_type=REG_HOLDING,
+        register=31112,
+        unit=REGISTER_U32,
+        scale=0.1,
+        rounding = 0,
+        allowedtypes=HYBRID,
+    ),
+    # Total load consumption
+    SolintegModbusSensorEntityDescription(
+        name="Total load consumption",
+        key="total_load_consumption",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class = SensorStateClass.TOTAL_INCREASING,
+        register_type=REG_HOLDING,
+        register=31114,
+        unit=REGISTER_U32,
+        scale=0.1,
+        rounding = 1,
+        allowedtypes=HYBRID,
+    ),
+    # Total energy purchased from grid at inverter side
+    SolintegModbusSensorEntityDescription(
+        name="Total energy purchased from grid at inverter side",
+        key="total_energy_purchased_from_grid_at_inverter_side",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class = SensorStateClass.TOTAL_INCREASING,
+        register_type=REG_HOLDING,
+        register=31118,
+        unit=REGISTER_U32,
+        scale=0.1,
+        rounding = 1,
+        allowedtypes=HYBRID,
+    ),
+    # Battery SOC
+    SolintegModbusSensorEntityDescription(
+        name="Battery SOC",
+        key="battery_soc",
+        native_unit_of_measurement = PERCENTAGE,
+        register_type=REG_HOLDING,
+        register=33000,
+        unit=REGISTER_U16,
+        scale=0.01,
+        allowedtypes=HYBRID,
+        icon = "mdi:battery-sync",
+    ),
+    # Battery SOH
+    SolintegModbusSensorEntityDescription(
+        name="Battery SOH",
+        key="battery_soh",
+        native_unit_of_measurement = PERCENTAGE,
+        entity_category = EntityCategory.DIAGNOSTIC,
+        register_type=REG_HOLDING,
+        register=33001,
+        unit=REGISTER_U16,
+        scale=0.01,
+        allowedtypes=HYBRID,
+        icon = "mdi:battery-heart-variant",
+    ),
+    # BMS tempearature
+    SolintegModbusSensorEntityDescription(
+        name="BMS pack temperature",
+        key="bms_pack_temperature",
+        native_unit_of_measurement = UnitOfTemperature.CELSIUS,
+        device_class = SensorDeviceClass.TEMPERATURE,
+        state_class = SensorStateClass.MEASUREMENT,
+        entity_category = EntityCategory.DIAGNOSTIC,
+        register_type=REG_HOLDING,
+        register=33003,
+        unit=REGISTER_U16,
+        scale=0.1,
+        allowedtypes=HYBRID,
+        icon = "mdi:battery-sync",
+    ),
+    # Battery on-grid SOC battery protection
+    SolintegModbusSensorEntityDescription(
+        name = "Battery SOC on-grid protection",
+        key = "battery_soc_on_grid_protection",
+        entity_category = EntityCategory.DIAGNOSTIC,
+        register = 52502,
+        scale = {
+            0: "Off",
+            1: "On",
+            },
+        unit = REGISTER_U16,
+        allowedtypes = HYBRID,
+        icon = "mdi:battery-plus-variant",
+    ),
+    # Battery on-grid SOC battery end
+    SolintegModbusSensorEntityDescription(
+        name = "Battery SOC on-grid end",
+        key = "battery_soc_on_grid_end",
+        register = 52503,
+        unit = REGISTER_U16,
+        native_unit_of_measurement = PERCENTAGE,
+        #scale=0.01,
+        allowedtypes = HYBRID,
+        icon = "mdi:battery-30",
+    ),
+    # Battery off-grid SOC battery protection
+    SolintegModbusSensorEntityDescription(
+        name = "Battery SOC off-grid protection",
+        key = "battery_soc_off_grid_protection",
+        entity_category = EntityCategory.DIAGNOSTIC,
+        register = 52504,
+        scale = {
+            0: "Off",
+            1: "On",
+            },
+        unit = REGISTER_U16,
+        allowedtypes = HYBRID,
+        icon = "mdi:battery-plus-variant",
+    ),
+    # Battery off-grid SOC battery end
+    SolintegModbusSensorEntityDescription(
+        name = "Battery SOC off-grid end",
+        key = "battery_soc_off_grid_end",
+        register = 52505,
+        unit = REGISTER_U16,
+        native_unit_of_measurement = PERCENTAGE,
+        scale=0.001,
+        allowedtypes = HYBRID,
+        icon = "mdi:battery-10",
+    ),
 ]
+
+async def async_read_serialnr(hub, address):
+    inverter_data = None
+    try:
+        inverter_data = await hub.async_read_holding_registers(unit=hub._modbus_addr, address=address, count=8)
+        if not inverter_data.isError():
+            decoder = BinaryPayloadDecoder.fromRegisters(inverter_data.registers, byteorder=Endian.BIG)
+            res = decoder.decode_string(14).decode("ascii")
+            hub.seriesnumber = res
+    except Exception as ex: _LOGGER.warning(f"{hub.name}: attempt to read serialnumber failed at 0x{address:x} data: {inverter_data}", exc_info=True)
+    if not res: _LOGGER.warning(f"{hub.name}: reading serial number from address 0x{address:x} failed; other address may succeed")
+    _LOGGER.info(f"Read {hub.name} 0x{address:x} serial number before potential swap: {res}")
+    return res
+
+async def async_read_model(hub, address):
+    inverter_data = None
+    try:
+        inverter_data = await hub.async_read_holding_registers(unit=hub._modbus_addr, address=address, count=8)
+        if not inverter_data.isError():
+            decoder = BinaryPayloadDecoder.fromRegisters(inverter_data.registers, byteorder=Endian.BIG)
+            return decoder.decode_16bit_uint()
+    except Exception as ex:
+        _LOGGER.warning(f"{hub.name}: attempt to read inverter mode failed at 0x{address:x} data: {inverter_data}", exc_info=True)
+        return None
 
 @dataclass
 class solinteg_plugin(plugin_base):
     async def async_determineInverterType(self, hub, configdict):
+        _LOGGER.info(f"{hub.name}: trying to determine inverter type.")
         invertertype = ALLDEFAULT
+        model = await async_read_model(hub, 10008)
+        serial = await async_read_serialnr(hub, 10008)
+        if not model:
+            _LOGGER.info(f"{hub.name}: failed to read inverter type")
+            # TODO: set inverter type to UNKNOWN
+        if not serial:
+            _LOGGER.info(f"{hub.name}: failed to read inverter serial")
+            # TODO: read inverter serial
+        _LOGGER.info(f"{hub.name}: inverter model {model}")
+        if model & HYBRID_3F_DUAL_MPPT:
+            invertertype = HYBRID
         return invertertype
+    
+    def matchInverterWithMask (self, inverterspec, entitymask, serialnumber = 'not relevant', blacklist = None):
+        return True
 
 plugin_instance = solinteg_plugin(
     plugin_name = 'Solinteg',
@@ -202,6 +949,6 @@ plugin_instance = solinteg_plugin(
     SELECT_TYPES = SELECT_TYPES,
     block_size = 100,
     order16 = Endian.BIG,
-    order32 = Endian.LITTLE,
+    order32 = Endian.BIG,
     auto_block_ignore_readerror = True,
 )
