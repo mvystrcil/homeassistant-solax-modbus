@@ -42,15 +42,32 @@ class SolintegModbusSensorEntityDescription(BaseModbusSensorEntityDescription):
     unit: int = REGISTER_U16
     register_type: int= REG_HOLDING
 
-BUTTON_TYPES = []
+def value_function_remotecontrol_recompute(initval, descr, datadict):
+    _LOGGER.info("Recompute called")
+    pass
+
+BUTTON_TYPES = [
+    # Start trigger command
+    SolintegModbusButtonEntityDescription(
+        name = "EMC controll",
+        key = "ems_controll_trigger",
+        register = 0x7C,
+        #command = 0,
+        allowedtypes = HYBRID,
+        write_method = WRITE_MULTI_MODBUS,
+        icon = "mdi:battery-clock",
+        value_function = value_function_remotecontrol_recompute,
+        autorepeat = "remotecontrol_autorepeat_duration"
+    ),
+]
 
 MAX_CURRENTS = []
 
 SELECT_TYPES = [
     # Enable grid injenction
     SolintegModbusSelectEntityDescription(
-        name = "Grid Injenction Power Limit Switch",
-        key = "grid_injenction_power_limit_switch",
+        name = "Grid Injenction Power Limit",
+        key = "grid_injenction_power_limit",
         register = 25100,
         unit = REGISTER_U16,
         option_dict =  {
@@ -59,7 +76,41 @@ SELECT_TYPES = [
             },
         allowedtypes = HYBRID,
         entity_category = EntityCategory.CONFIG,
-        icon = "mdi:transmission-tower-off",
+        icon = "mdi:transmission-tower-import",
+    ),
+     # Battery off-grid SOC battery protection
+    SolintegModbusSelectEntityDescription(
+        name = "Inverter working mode",
+        key = "inverter_working_mode",
+        register = 50000,
+        option_dict = {
+            0x0101: "General Mode",
+            0x0102: "Economic Mode",
+            0x0103: "UPS Mode",
+            0x0200: "Off Grid Mode",
+            0x0301: "EMS AC Ctrl Mode",
+            0x0302: "EMS General Mode",
+            0x0303: "EMS Battery Mode",
+            0x0304: "EMS Off Grid Mode",
+            },
+        unit = REGISTER_U16,
+        allowedtypes = HYBRID,
+        entity_category = EntityCategory.CONFIG,
+        icon = "mdi:home-lightning-bolt",
+    ),
+    # UPS function switch
+    SolintegModbusSelectEntityDescription(
+        name = "UPS Function Switch",
+        key = "ups_function_switch",
+        register = 50001,
+        option_dict = {
+            0: "Disabled",
+            1: "Enabled",
+            },
+        unit = REGISTER_U16,
+        allowedtypes = HYBRID,
+        entity_category = EntityCategory.CONFIG,
+        icon = "mdi:power-plug-battery",
     ),
     # Battery on-grid SOC battery protection
     SolintegModbusSelectEntityDescription(
@@ -87,9 +138,27 @@ SELECT_TYPES = [
         allowedtypes = HYBRID,
         icon = "mdi:battery-plus-variant",
     ),
+
 ]
 
 NUMBER_TYPES = [
+    # Local number data
+    SolintegModbusNumberEntityDescription(
+        name = "Remotecontrol Autorepeat Duration",
+        key = "remotecontrol_autorepeat_duration",
+        unit = REGISTER_U16,
+        allowedtypes =  HYBRID,
+        icon = "mdi:home-clock",
+        initvalue = 0, # seconds -
+        native_min_value = 0,
+        native_max_value = 28800,
+        native_step = 600,
+        fmt = "i",
+        native_unit_of_measurement = UnitOfTime.SECONDS,
+        write_method = WRITE_DATA_LOCAL,
+    ),
+    # Device number data
+
     # Set grid injection percentage
     SolintegModbusNumberEntityDescription(
         name = "Grid Injection Power Limit Settings",
@@ -102,8 +171,25 @@ NUMBER_TYPES = [
         native_step = 1,
         native_unit_of_measurement = UnitOfPower.WATT,
         allowedtypes = HYBRID,
+        icon = "mdi:transmission-tower-import",
+    ),
+
+    # Settings of grid injenction power
+    SolintegModbusNumberEntityDescription(
+        name = "Grid Injection Power Limit Settings %",
+        key = "grid_injenction_power_limit_settings_percent",
+        register = 25103,
+        unit = REGISTER_U16,
+        fmt = "i",
+        native_min_value = 0,
+        native_max_value = 100000,
+        native_step = 1,
+        native_unit_of_measurement = PERCENTAGE,
+        scale = 0.1,
+        allowedtypes = HYBRID,
         icon = "mdi:transmission-tower-export",
     ),
+
     # Set on-grid SOC battery end
     SolintegModbusNumberEntityDescription(
         name = "Battery SOC on-grid end",
@@ -358,6 +444,20 @@ SENSOR_TYPES: list[SolintegModbusSensorEntityDescription] = [
         #scale = 0.001,
         allowedtypes=HYBRID,
     ),
+    # Grid injenction power limit
+    SolintegModbusSensorEntityDescription(
+        name = "Grid Injenction Power Limit",
+        key = "grid_injenction_power_limit",
+        register = 25100,
+        unit = REGISTER_U16,
+        scale =  {
+                0: "Disabled",
+                1: "Enabled",
+            },
+        allowedtypes = HYBRID,
+        entity_category = EntityCategory.DIAGNOSTIC,
+        icon = "mdi:transmission-tower-import",
+    ),
     # Settings of grid injenction power
     SolintegModbusSensorEntityDescription(
         name = "Grid Injection Power Limit Settings",
@@ -367,6 +467,17 @@ SENSOR_TYPES: list[SolintegModbusSensorEntityDescription] = [
         native_unit_of_measurement = UnitOfPower.WATT,
         device_class = SensorDeviceClass.POWER,
         state_class = SensorStateClass.MEASUREMENT,
+        allowedtypes = HYBRID,
+        icon = "mdi:transmission-tower-export",
+    ),
+    # Settings of grid injenction power
+    SolintegModbusSensorEntityDescription(
+        name = "Grid Injection Power Limit Settings %",
+        key = "grid_injenction_power_limit_settings_percent",
+        register = 25103,
+        unit = REGISTER_U16,
+        native_unit_of_measurement = PERCENTAGE,
+        scale = 0.1,
         allowedtypes = HYBRID,
         icon = "mdi:transmission-tower-export",
     ),
@@ -556,7 +667,7 @@ SENSOR_TYPES: list[SolintegModbusSensorEntityDescription] = [
         device_class = SensorDeviceClass.CURRENT,
         register_type=REG_HOLDING,
         register=30255,
-        unit = REGISTER_U16,
+        unit = REGISTER_S16,
         scale = 0.1,
         allowedtypes=HYBRID,
         icon = "mdi:current-dc",
@@ -743,7 +854,7 @@ SENSOR_TYPES: list[SolintegModbusSensorEntityDescription] = [
         register_type=REG_HOLDING,
         register=31108,
         unit=REGISTER_U32,
-        scale=0.001,
+        scale=0.1,
         rounding = 1,
         allowedtypes=HYBRID,
     ),
@@ -757,7 +868,7 @@ SENSOR_TYPES: list[SolintegModbusSensorEntityDescription] = [
         register_type=REG_HOLDING,
         register=31110,
         unit=REGISTER_U32,
-        scale=0.001,
+        scale=0.1,
         rounding = 1,
         allowedtypes=HYBRID,
     ),
@@ -842,6 +953,40 @@ SENSOR_TYPES: list[SolintegModbusSensorEntityDescription] = [
         scale=0.1,
         allowedtypes=HYBRID,
         icon = "mdi:battery-sync",
+    ),
+    # Battery off-grid SOC battery protection
+    SolintegModbusSensorEntityDescription(
+        name = "Inverter working mode",
+        key = "inverter_working_mode",
+        entity_category = EntityCategory.DIAGNOSTIC,
+        register = 50000,
+        scale = {
+            0x0101: "General Mode",
+            0x0102: "Economic Mode",
+            0x0103: "UPS Mode",
+            0x0200: "Off Grid Mode",
+            0x0301: "EMS AC Ctrl Mode",
+            0x0302: "EMS General Mode",
+            0x0303: "EMS Battery Mode",
+            0x0304: "EMS Off Grid Mode",
+            },
+        unit = REGISTER_U16,
+        allowedtypes = HYBRID,
+        icon = "mdi:home-lightning-bolt",
+    ),
+    # UPS function switch
+    SolintegModbusSensorEntityDescription(
+        name = "UPS Function Switch",
+        key = "ups_function_switch",
+        entity_category = EntityCategory.DIAGNOSTIC,
+        register = 50001,
+        scale = {
+            0: "Disabled",
+            1: "Enabled",
+            },
+        unit = REGISTER_U16,
+        allowedtypes = HYBRID,
+        icon = "mdi:power-plug-battery",
     ),
     # Battery on-grid SOC battery protection
     SolintegModbusSensorEntityDescription(
@@ -939,6 +1084,9 @@ class solinteg_plugin(plugin_base):
     
     def matchInverterWithMask (self, inverterspec, entitymask, serialnumber = 'not relevant', blacklist = None):
         return True
+
+    def localDataCallback(self, hub):
+        pass
 
 plugin_instance = solinteg_plugin(
     plugin_name = 'Solinteg',
