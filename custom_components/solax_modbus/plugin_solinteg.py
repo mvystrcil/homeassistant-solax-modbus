@@ -42,24 +42,7 @@ class SolintegModbusSensorEntityDescription(BaseModbusSensorEntityDescription):
     unit: int = REGISTER_U16
     register_type: int= REG_HOLDING
 
-def value_function_remotecontrol_recompute(initval, descr, datadict):
-    _LOGGER.info("Recompute called")
-    pass
-
-BUTTON_TYPES = [
-    # Start trigger command
-    SolintegModbusButtonEntityDescription(
-        name = "EMC controll",
-        key = "ems_controll_trigger",
-        register = 0x7C,
-        #command = 0,
-        allowedtypes = HYBRID,
-        write_method = WRITE_MULTI_MODBUS,
-        icon = "mdi:battery-clock",
-        value_function = value_function_remotecontrol_recompute,
-        autorepeat = "remotecontrol_autorepeat_duration"
-    ),
-]
+BUTTON_TYPES = []
 
 MAX_CURRENTS = []
 
@@ -138,25 +121,9 @@ SELECT_TYPES = [
         allowedtypes = HYBRID,
         icon = "mdi:battery-plus-variant",
     ),
-
 ]
 
 NUMBER_TYPES = [
-    # Local number data
-    SolintegModbusNumberEntityDescription(
-        name = "Remotecontrol Autorepeat Duration",
-        key = "remotecontrol_autorepeat_duration",
-        unit = REGISTER_U16,
-        allowedtypes =  HYBRID,
-        icon = "mdi:home-clock",
-        initvalue = 0, # seconds -
-        native_min_value = 0,
-        native_max_value = 28800,
-        native_step = 600,
-        fmt = "i",
-        native_unit_of_measurement = UnitOfTime.SECONDS,
-        write_method = WRITE_DATA_LOCAL,
-    ),
     # Device number data
 
     # Set grid injection percentage
@@ -173,7 +140,6 @@ NUMBER_TYPES = [
         allowedtypes = HYBRID,
         icon = "mdi:transmission-tower-import",
     ),
-
     # Settings of grid injenction power
     SolintegModbusNumberEntityDescription(
         name = "Grid Injection Power Limit Settings %",
@@ -189,7 +155,49 @@ NUMBER_TYPES = [
         allowedtypes = HYBRID,
         icon = "mdi:transmission-tower-export",
     ),
-
+    # Battery on-grid SOC battery end
+    SolintegModbusNumberEntityDescription(
+        name = "Battery Power Scheduling",
+        key = "battery_power_scheduling",
+        register = 50207,
+        unit = REGISTER_S16,
+        fmt = "i",
+        native_unit_of_measurement = UnitOfPower.WATT,
+        device_class = SensorDeviceClass.POWER,
+        native_min_value = -8000,
+        native_max_value = 8000,
+        native_step = 100,
+        scale = 10,
+        allowedtypes = HYBRID,
+    ),
+    # Max AC Power Limit
+    SolintegModbusNumberEntityDescription(
+        name = "Max AC Power Limit",
+        key = "max_ac_power_limit",
+        register = 50208,
+        unit = REGISTER_S16,
+        fmt = "i",
+        native_unit_of_measurement = UnitOfPower.WATT,
+        device_class = SensorDeviceClass.POWER,
+        native_min_value = -8000,
+        native_max_value = 8000,
+        native_step = 100,
+        allowedtypes = HYBRID,
+    ),
+    # Min AC Power Limit
+    SolintegModbusNumberEntityDescription(
+        name = "Min AC Power Limit",
+        key = "min_ac_power_limit",
+        register = 50209,
+        unit = REGISTER_S16,
+        fmt = "i",
+        native_unit_of_measurement = UnitOfPower.WATT,
+        device_class = SensorDeviceClass.POWER,
+        native_min_value = -8000,
+        native_max_value = 8000,
+        native_step = 100,
+        allowedtypes = HYBRID,
+    ),
     # Set on-grid SOC battery end
     SolintegModbusNumberEntityDescription(
         name = "Battery SOC on-grid end",
@@ -198,10 +206,10 @@ NUMBER_TYPES = [
         unit = REGISTER_U16,
         fmt = "i",
         native_min_value = 10,
-        native_max_value = 10000,
+        native_max_value = 100,
         native_step = 1,
-        #native_unit_of_measurement = PERCENTAGE,
-        #scale = 0.001,
+        native_unit_of_measurement = PERCENTAGE,
+        scale = 0.1,
         allowedtypes = HYBRID,
         icon = "mdi:battery-30",
     ),
@@ -216,7 +224,37 @@ NUMBER_TYPES = [
         native_max_value = 100,
         native_step = 1,
         native_unit_of_measurement = PERCENTAGE,
-        scale = 0.001,
+        scale = 0.1,
+        allowedtypes = HYBRID,
+        icon = "mdi:battery-10",
+    ),
+    # Set battery charge max current
+    SolintegModbusNumberEntityDescription(
+        name = "Battery Max Charge current",
+        key = "battery_charge_current",
+        register = 52601,
+        unit = REGISTER_U16,
+        fmt = "i",
+        native_min_value = 0,
+        native_max_value = 2000,
+        native_step = 0.1,
+        native_unit_of_measurement = UnitOfElectricCurrent.AMPERE,
+        scale = 0.1,
+        allowedtypes = HYBRID,
+        icon = "mdi:battery-10",
+    ),
+    # Set battery discharge max current
+    SolintegModbusNumberEntityDescription(
+        name = "Battery Max Discharge current",
+        key = "battery_discharge_current",
+        register = 52603,
+        unit = REGISTER_U16,
+        fmt = "i",
+        native_min_value = 0,
+        native_max_value = 2000,
+        native_step = 0.1,
+        native_unit_of_measurement = UnitOfElectricCurrent.AMPERE,
+        scale = 0.1,
         allowedtypes = HYBRID,
         icon = "mdi:battery-10",
     ),
@@ -315,8 +353,8 @@ SENSOR_TYPES: list[SolintegModbusSensorEntityDescription] = [
     SolintegModbusSensorEntityDescription(
         name="Total grid injenction",
         key="total_grid_injenction",
-        native_unit_of_measurement = UnitOfPower.WATT,
-        device_class = SensorDeviceClass.POWER,
+        native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR,
+        device_class = SensorDeviceClass.ENERGY,
         state_class = SensorStateClass.MEASUREMENT,
         register=11002,
         #scale = 0.001,
@@ -327,12 +365,23 @@ SENSOR_TYPES: list[SolintegModbusSensorEntityDescription] = [
     SolintegModbusSensorEntityDescription(
         name="Total purchasing energy",
         key="total_purchasing_energy",
-        native_unit_of_measurement = UnitOfPower.WATT,
-        device_class = SensorDeviceClass.POWER,
+        native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR,
+        device_class = SensorDeviceClass.ENERGY,
         state_class = SensorStateClass.MEASUREMENT,
         register=11004,
         #scale = 0.001,
         unit = REGISTER_U32,
+        allowedtypes=HYBRID,
+    ),
+    # Total power on AC
+    SolintegModbusSensorEntityDescription(
+        name="Power on AC",
+        key="power_on_ac",
+        native_unit_of_measurement = UnitOfPower.WATT,
+        device_class = SensorDeviceClass.POWER,
+        state_class = SensorStateClass.MEASUREMENT,
+        register=11016,
+        unit = REGISTER_S32,
         allowedtypes=HYBRID,
     ),
     # Energy today
@@ -914,6 +963,30 @@ SENSOR_TYPES: list[SolintegModbusSensorEntityDescription] = [
         rounding = 1,
         allowedtypes=HYBRID,
     ),
+    # Battery charge I max
+    SolintegModbusSensorEntityDescription(
+        name="Battery Max Charge current",
+        key="battery_charge_current",
+        native_unit_of_measurement = UnitOfElectricCurrent.AMPERE,
+        register_type=REG_HOLDING,
+        register=52601,
+        unit=REGISTER_U16,
+        scale=0.1,
+        allowedtypes=HYBRID,
+        icon = "mdi:current-dc",
+    ),
+    # Battery discharge I max
+    SolintegModbusSensorEntityDescription(
+        name="Battery Max Discharge current",
+        key="battery_discharge_current",
+        native_unit_of_measurement = UnitOfElectricCurrent.AMPERE,
+        register_type=REG_HOLDING,
+        register=52603,
+        unit=REGISTER_U16,
+        scale=0.1,
+        allowedtypes=HYBRID,
+        icon = "mdi:current-dc",
+    ),
     # Battery SOC
     SolintegModbusSensorEntityDescription(
         name="Battery SOC",
@@ -988,6 +1061,37 @@ SENSOR_TYPES: list[SolintegModbusSensorEntityDescription] = [
         allowedtypes = HYBRID,
         icon = "mdi:power-plug-battery",
     ),
+    # Battery on-grid SOC battery end
+    SolintegModbusSensorEntityDescription(
+        name = "Battery Power Scheduling",
+        key = "battery_power_scheduling",
+        register = 50207,
+        unit = REGISTER_S16,
+        native_unit_of_measurement = UnitOfPower.WATT,
+        device_class = SensorDeviceClass.POWER,
+        scale = 10,
+        allowedtypes = HYBRID,
+    ),
+    # Max AC Power Limit
+    SolintegModbusSensorEntityDescription(
+        name = "Max AC Power Limit",
+        key = "max_ac_power_limit",
+        register = 50208,
+        unit = REGISTER_S16,
+        native_unit_of_measurement = UnitOfPower.WATT,
+        device_class = SensorDeviceClass.POWER,
+        allowedtypes = HYBRID,
+    ),
+    # Min AC Power Limit
+    SolintegModbusSensorEntityDescription(
+        name = "Min AC Power Limit",
+        key = "min_ac_power_limit",
+        register = 50209,
+        unit = REGISTER_S16,
+        native_unit_of_measurement = UnitOfPower.WATT,
+        device_class = SensorDeviceClass.POWER,
+        allowedtypes = HYBRID,
+    ),
     # Battery on-grid SOC battery protection
     SolintegModbusSensorEntityDescription(
         name = "Battery SOC on-grid protection",
@@ -1009,7 +1113,7 @@ SENSOR_TYPES: list[SolintegModbusSensorEntityDescription] = [
         register = 52503,
         unit = REGISTER_U16,
         native_unit_of_measurement = PERCENTAGE,
-        #scale=0.01,
+        scale=0.1,
         allowedtypes = HYBRID,
         icon = "mdi:battery-30",
     ),
@@ -1034,7 +1138,7 @@ SENSOR_TYPES: list[SolintegModbusSensorEntityDescription] = [
         register = 52505,
         unit = REGISTER_U16,
         native_unit_of_measurement = PERCENTAGE,
-        scale=0.001,
+        scale=0.1,
         allowedtypes = HYBRID,
         icon = "mdi:battery-10",
     ),
@@ -1084,7 +1188,7 @@ class solinteg_plugin(plugin_base):
     
     def matchInverterWithMask (self, inverterspec, entitymask, serialnumber = 'not relevant', blacklist = None):
         return True
-
+    
     def localDataCallback(self, hub):
         pass
 
